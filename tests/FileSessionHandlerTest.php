@@ -28,17 +28,25 @@ class FileSessionHandlerTest extends TestCase
 
     private function cleanUpDirectory(string $dir): void
     {
-        if (is_dir($dir)) {
-            $files = glob($dir . '/*');
-            if ($files !== false) {
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        @unlink($file);
-                    }
-                }
-            }
-            @rmdir($dir);
+        if (!is_dir($dir)) {
+            return;
         }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            if ($item->isDir()) {
+                @rmdir($item->getPathname());
+                continue;
+            }
+
+            @unlink($item->getPathname());
+        }
+
+        @rmdir($dir);
     }
 
     public function testDirectoryAutoCreated(): void
@@ -51,8 +59,6 @@ class FileSessionHandlerTest extends TestCase
         new FileSessionHandler($targetDir);
 
         $this->assertDirectoryExists($targetDir);
-        $this->cleanUpDirectory($targetDir);
-        $this->cleanUpDirectory($this->testDir . '/nested');
     }
 
     public function testWriteAndReadSessionFile(): void

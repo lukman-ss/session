@@ -27,9 +27,13 @@ class SessionIdGeneratorTest extends TestCase
 
     public function testGenerateUnique(): void
     {
-        $id1 = $this->generator->generate();
-        $id2 = $this->generator->generate();
-        $this->assertNotSame($id1, $id2);
+        $ids = [];
+
+        for ($i = 0; $i < 100; $i++) {
+            $ids[] = $this->generator->generate();
+        }
+
+        $this->assertSame($ids, array_unique($ids));
     }
 
     public function testLengthCukup(): void
@@ -40,8 +44,13 @@ class SessionIdGeneratorTest extends TestCase
 
     public function testOnlySafeCharacters(): void
     {
-        $id = $this->generator->generate();
-        $this->assertMatchesRegularExpression('/^[a-zA-Z0-9_-]+$/', $id);
+        for ($i = 0; $i < 25; $i++) {
+            $id = $this->generator->generate();
+            $this->assertMatchesRegularExpression('/\A[A-Za-z0-9_-]+\z/', $id);
+            $this->assertStringNotContainsString('/', $id);
+            $this->assertStringNotContainsString('\\', $id);
+            $this->assertStringNotContainsString('..', $id);
+        }
     }
 
     public function testIsValidValidId(): void
@@ -53,6 +62,7 @@ class SessionIdGeneratorTest extends TestCase
     public function testIsValidInvalidPathTraversal(): void
     {
         $this->assertFalse($this->generator->isValid('../traversal'));
+        $this->assertFalse($this->generator->isValid('validPrefix..validSuffix12345678901234567890'));
         $this->assertFalse($this->generator->isValid('sub/directory'));
         $this->assertFalse($this->generator->isValid('sub\\directory'));
     }
@@ -69,7 +79,15 @@ class SessionIdGeneratorTest extends TestCase
 
     public function testIsValidWhitespaceInvalid(): void
     {
-        $id = $this->generator->generate() . ' ';
-        $this->assertFalse($this->generator->isValid($id));
+        $this->assertFalse($this->generator->isValid($this->generator->generate() . ' '));
+        $this->assertFalse($this->generator->isValid(' ' . $this->generator->generate()));
+        $this->assertFalse($this->generator->isValid(str_repeat('a', 20) . "\n" . str_repeat('b', 20)));
+    }
+
+    public function testIsValidUnsafeCharactersInvalid(): void
+    {
+        $this->assertFalse($this->generator->isValid(str_repeat('a', 39) . '+'));
+        $this->assertFalse($this->generator->isValid(str_repeat('a', 39) . '='));
+        $this->assertFalse($this->generator->isValid(str_repeat('a', 39) . '.'));
     }
 }

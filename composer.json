@@ -3,6 +3,13 @@
     "description": "A standalone PHP session management library.",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "session",
+        "session-handler",
+        "php-session",
+        "flash",
+        "csrf"
+    ],
     "authors": [
         {
             "name": "Lukman",

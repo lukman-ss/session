@@ -106,6 +106,24 @@ class SessionStoreTest extends TestCase
         $this->assertArrayHasKey('_flash', $savedData);
     }
 
+    public function testDataPersistsAfterSaveAndRestart(): void
+    {
+        $this->store->start();
+        $this->store->put('user_id', 42);
+        $this->store->put('nullable', null);
+        $id = $this->store->id();
+
+        $this->store->save();
+
+        $nextStore = new SessionStore($this->handler, null, $id);
+        $nextStore->start();
+
+        $this->assertTrue($nextStore->started());
+        $this->assertSame(42, $nextStore->get('user_id'));
+        $this->assertTrue($nextStore->has('nullable'));
+        $this->assertNull($nextStore->get('nullable'));
+    }
+
     public function testOperationBeforeStartThrows(): void
     {
         $this->expectException(SessionNotStartedException::class);
@@ -303,6 +321,24 @@ class SessionStoreTest extends TestCase
         $this->assertSame('success', $this->store->get('status'));
     }
 
+    public function testFlashPersistsUntilNextLifecycle(): void
+    {
+        $this->store->start();
+        $this->store->flash('status', 'success');
+        $this->store->ageFlashData();
+        $id = $this->store->id();
+        $this->store->save();
+
+        $nextStore = new SessionStore($this->handler, null, $id);
+        $nextStore->start();
+
+        $this->assertSame('success', $nextStore->get('status'));
+
+        $nextStore->ageFlashData();
+
+        $this->assertFalse($nextStore->has('status'));
+    }
+
     public function testAgeRemovesOldFlash(): void
     {
         $this->store->start();
@@ -367,6 +403,24 @@ class SessionStoreTest extends TestCase
         $this->assertSame('lukman', $this->store->old('username'));
         $this->assertSame('admin', $this->store->old('nested.role'));
         $this->assertSame('default', $this->store->old('missing_key', 'default'));
+    }
+
+    public function testCorruptFlashMetadataIsNormalized(): void
+    {
+        $id = 'session-with-corrupt-flash-metadata';
+        $this->handler->write($id, [
+            'status' => 'success',
+            '_flash' => [
+                'new' => 'invalid',
+                'old' => ['status', '', 123, 'status'],
+            ],
+        ], 3600);
+
+        $store = new SessionStore($this->handler, null, $id);
+        $store->start();
+        $store->ageFlashData();
+
+        $this->assertFalse($store->has('status'));
     }
 
     // --- Phase 8 Tests ---
@@ -465,5 +519,25 @@ class SessionStoreTest extends TestCase
         $token2 = $this->store->regenerateToken();
         $this->assertNotSame($token1, $token2);
         $this->assertSame($token2, $this->store->token());
+    }
+
+    public function testSecurityLifecycleBeforeStartThrows(): void
+    {
+        $methods = [
+            fn() => $this->store->regenerate(),
+            fn() => $this->store->invalidate(),
+            fn() => $this->store->destroy(),
+            fn() => $this->store->token(),
+            fn() => $this->store->regenerateToken(),
+        ];
+
+        foreach ($methods as $method) {
+            try {
+                $method();
+                $this->fail('Expected SessionNotStartedException.');
+            } catch (SessionNotStartedException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 }

@@ -6,6 +6,8 @@ namespace Lukman\Session;
 
 class SessionIdGenerator
 {
+    private const MIN_LENGTH = 40;
+
     public function generate(): string
     {
         return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
@@ -17,6 +19,6 @@ class SessionIdGenerator
             return false;
         }
 
-        return preg_match('/^[a-zA-Z0-9_-]{40,}$/', $id) === 1;
+        return preg_match('/\A[A-Za-z0-9_-]{' . self::MIN_LENGTH . ',}\z/', $id) === 1;
     }
 }

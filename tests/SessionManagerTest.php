@@ -28,17 +28,25 @@ class SessionManagerTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (is_dir($this->testDir)) {
-            $files = glob($this->testDir . '/*');
-            if ($files !== false) {
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        @unlink($file);
-                    }
-                }
-            }
-            @rmdir($this->testDir);
+        if (!is_dir($this->testDir)) {
+            return;
         }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->testDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            if ($item->isDir()) {
+                @rmdir($item->getPathname());
+                continue;
+            }
+
+            @unlink($item->getPathname());
+        }
+
+        @rmdir($this->testDir);
     }
 
     public function testDefaultDriver(): void
@@ -69,6 +77,36 @@ class SessionManagerTest extends TestCase
         $store = $manager->store();
         $this->assertInstanceOf(SessionStore::class, $store);
         $this->assertInstanceOf(FileSessionHandler::class, $manager->handler());
+    }
+
+    public function testFileDriverUsesConfiguredPath(): void
+    {
+        $manager = new SessionManager([
+            'driver' => 'file',
+            'files' => $this->testDir,
+        ]);
+
+        $store = $manager->store();
+        $store->start();
+        $id = $store->id();
+        $store->put('foo', 'bar');
+        $store->save();
+
+        $this->assertFileExists($this->testDir . DIRECTORY_SEPARATOR . 'sess_' . $id);
+    }
+
+    public function testStoreIsLazy(): void
+    {
+        $manager = new SessionManager([
+            'driver' => 'file',
+            'files' => $this->testDir,
+        ]);
+
+        $this->assertDirectoryDoesNotExist($this->testDir);
+
+        $manager->store();
+
+        $this->assertDirectoryExists($this->testDir);
     }
 
     public function testStoreCached(): void

@@ -1,5 +1,7 @@
 # Lukman Session Manager
 
+![Hero Image](docs/hero.png)
+
 A lightweight, framework-agnostic, and standalone PHP session management library.
 
 ## Requirements
@@ -41,9 +43,11 @@ $handler = new FileSessionHandler('/path/to/sessions');
 Use `SessionStore` directly to start a session, get, set (put), and save session data.
 
 ```php
+use Lukman\Session\Handlers\ArraySessionHandler;
 use Lukman\Session\SessionStore;
 use Lukman\Session\SessionIdGenerator;
 
+$handler = new ArraySessionHandler();
 $store = new SessionStore($handler, new SessionIdGenerator());
 
 // Start the session (loads data from the handler, generates new ID if needed)

@@ -34,11 +34,10 @@ class ArraySessionHandler implements SessionHandlerInterface
 
     public function gc(int $lifetime): int
     {
-        $now = time();
         $deleted = 0;
 
-        foreach ($this->sessions as $id => $session) {
-            if ($now >= $session['expires_at']) {
+        foreach (array_keys($this->sessions) as $id) {
+            if ($this->isExpired($id)) {
                 unset($this->sessions[$id]);
                 $deleted++;
             }
@@ -53,10 +52,17 @@ class ArraySessionHandler implements SessionHandlerInterface
             return false;
         }
 
-        if (time() >= $this->sessions[$id]['expires_at']) {
+        if ($this->isExpired($id)) {
+            unset($this->sessions[$id]);
+
             return false;
         }
 
         return true;
+    }
+
+    private function isExpired(string $id): bool
+    {
+        return time() >= $this->sessions[$id]['expires_at'];
     }
 }

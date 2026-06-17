@@ -40,19 +40,7 @@ class SessionStore
 
         $this->data = $this->handler->read($this->id);
 
-        if (!isset($this->data['_flash']) || !is_array($this->data['_flash'])) {
-            $this->data['_flash'] = [
-                'new' => [],
-                'old' => [],
-            ];
-        } else {
-            if (!isset($this->data['_flash']['new']) || !is_array($this->data['_flash']['new'])) {
-                $this->data['_flash']['new'] = [];
-            }
-            if (!isset($this->data['_flash']['old']) || !is_array($this->data['_flash']['old'])) {
-                $this->data['_flash']['old'] = [];
-            }
-        }
+        $this->normalizeFlashMetadata();
 
         $this->started = true;
     }
@@ -186,9 +174,7 @@ class SessionStore
             throw new SessionNotStartedException("Session is not started.");
         }
         $this->data = $data;
-        if (!isset($this->data['_flash'])) {
-            $this->data['_flash'] = ['new' => [], 'old' => []];
-        }
+        $this->normalizeFlashMetadata();
     }
 
     public function only(array $keys): array
@@ -453,5 +439,27 @@ class SessionStore
             throw new SessionNotStartedException("Session is not started.");
         }
         $this->handler->write($this->id, $this->data, $this->ttl);
+    }
+
+    private function normalizeFlashMetadata(): void
+    {
+        if (!isset($this->data['_flash']) || !is_array($this->data['_flash'])) {
+            $this->data['_flash'] = ['new' => [], 'old' => []];
+
+            return;
+        }
+
+        foreach (['new', 'old'] as $key) {
+            if (!isset($this->data['_flash'][$key]) || !is_array($this->data['_flash'][$key])) {
+                $this->data['_flash'][$key] = [];
+
+                continue;
+            }
+
+            $this->data['_flash'][$key] = array_values(array_unique(array_filter(
+                $this->data['_flash'][$key],
+                static fn($value): bool => is_string($value) && $value !== ''
+            )));
+        }
     }
 }

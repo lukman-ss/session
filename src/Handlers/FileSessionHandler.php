@@ -49,6 +49,8 @@ class FileSessionHandler implements SessionHandlerInterface
             }
 
             if (time() >= $payload['expires_at']) {
+                $this->deleteFile($file);
+
                 return [];
             }
 
@@ -67,11 +69,7 @@ class FileSessionHandler implements SessionHandlerInterface
             $payload = json_encode([
                 'expires_at' => time() + $ttl,
                 'data' => $data,
-            ]);
-
-            if ($payload === false) {
-                throw new SessionException("Failed to serialize session data to JSON.");
-            }
+            ], JSON_THROW_ON_ERROR);
 
             $tempFile = $this->path . DIRECTORY_SEPARATOR . 'sess_tmp_' . bin2hex(random_bytes(16));
 
@@ -97,9 +95,7 @@ class FileSessionHandler implements SessionHandlerInterface
         try {
             $file = $this->getFilePath($id);
             if (file_exists($file)) {
-                if (!@unlink($file)) {
-                    throw new SessionException("Failed to delete session file: {$file}");
-                }
+                $this->deleteFile($file);
             }
         } catch (SessionException $e) {
             throw $e;
@@ -130,11 +126,8 @@ class FileSessionHandler implements SessionHandlerInterface
                         $payload = json_decode($content, true);
                         if (is_array($payload) && isset($payload['expires_at'])) {
                             if ($now >= $payload['expires_at']) {
-                                if (@unlink($file)) {
-                                    $deleted++;
-                                } else {
-                                    throw new SessionException("Failed to delete expired session file during GC: {$file}");
-                                }
+                                $this->deleteFile($file);
+                                $deleted++;
                             }
                         }
                     }
@@ -167,7 +160,13 @@ class FileSessionHandler implements SessionHandlerInterface
                 return false;
             }
 
-            return time() < $payload['expires_at'];
+            if (time() >= $payload['expires_at']) {
+                $this->deleteFile($file);
+
+                return false;
+            }
+
+            return true;
         } catch (SessionException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -177,15 +176,17 @@ class FileSessionHandler implements SessionHandlerInterface
 
     private function getFilePath(string $id): string
     {
-        if (str_contains($id, '/') || str_contains($id, '\\') || str_contains($id, '..')) {
-            throw new SessionException("Path traversal attempt detected in session ID.");
+        if ($id === '' || !preg_match('/\A[A-Za-z0-9_-]+\z/', $id)) {
+            throw new SessionException("Session ID is empty or invalid.");
         }
 
-        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
-        if (empty($sanitized)) {
-            throw new SessionException("Session ID is empty or invalid after sanitization.");
-        }
+        return $this->path . DIRECTORY_SEPARATOR . 'sess_' . $id;
+    }
 
-        return $this->path . DIRECTORY_SEPARATOR . 'sess_' . $sanitized;
+    private function deleteFile(string $file): void
+    {
+        if (file_exists($file) && !@unlink($file)) {
+            throw new SessionException("Failed to delete session file: {$file}");
+        }
     }
 }
