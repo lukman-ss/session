@@ -1,0 +1,34 @@
+{
+    "name": "lukman-ss/session",
+    "description": "A standalone PHP session management library.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lukman",
+            "email": "lukmanumb1@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Lukman\\Session\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Lukman\\Session\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}
